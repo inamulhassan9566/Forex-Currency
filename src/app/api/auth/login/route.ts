@@ -4,6 +4,7 @@ import { comparePassword, signToken, COOKIE_NAME } from "@/lib/auth";
 import { LoginSchema } from "@/validators";
 import { apiError } from "@/lib/api-response";
 import { recordAuditLog } from "@/lib/audit";
+import { ensureDatabaseReady } from "@/lib/auto-init";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password } = parsed.data;
+
+    // Self-provision schema and seed data on fresh cloud database
+    await ensureDatabaseReady();
 
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },

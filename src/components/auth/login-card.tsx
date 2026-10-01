@@ -72,8 +72,31 @@ export function LoginCard() {
         {/* Minimal Auth Card */}
         <div className="rounded-[20px] bg-[#0A0A0C]/90 border border-white/[0.08] p-7 shadow-[0_24px_64px_rgba(0,0,0,0.8)] backdrop-blur-2xl space-y-5">
           {errorMsg && (
-            <div className="p-3 text-xs rounded-[10px] bg-rose-500/10 border border-rose-500/20 text-rose-400">
-              {errorMsg}
+            <div className="p-3 text-xs rounded-[10px] bg-rose-500/10 border border-rose-500/20 text-rose-400 space-y-2">
+              <div>{errorMsg}</div>
+              {errorMsg.toLowerCase().includes("unexpected") && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setErrorMsg("Initializing cloud database tables & seeding records, please wait...");
+                    try {
+                      const res = await fetch("/api/setup");
+                      const json = await res.json();
+                      if (json.success) {
+                        setErrorMsg("");
+                        handleLogin(undefined, "operator@example.com", "Operator@123456");
+                      } else {
+                        setErrorMsg(json.error || "Setup failed");
+                      }
+                    } catch (e: any) {
+                      setErrorMsg(e.message || "Setup failed");
+                    }
+                  }}
+                  className="w-full mt-2 py-2 px-3 rounded-[8px] bg-white text-black font-semibold text-xs hover:bg-neutral-200 transition shadow"
+                >
+                  ⚡ Initialize Database & Log In
+                </button>
+              )}
             </div>
           )}
 

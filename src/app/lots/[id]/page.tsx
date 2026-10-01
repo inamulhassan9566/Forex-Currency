@@ -16,10 +16,13 @@ import {
   ExternalLink,
   Edit2,
   FileText,
+  Printer,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EditLotModal } from "@/components/lots/edit-lot-modal";
+import { VaultTagModal } from "@/components/lots/vault-tag-modal";
 import Link from "next/link";
 
 export default function LotDetailPage() {
@@ -28,6 +31,7 @@ export default function LotDetailPage() {
   const [lot, setLot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
 
   useEffect(() => {
     async function loadLot() {
@@ -85,20 +89,29 @@ export default function LotDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-white/40 hidden sm:block">
+        <div className="flex items-center gap-2.5">
+          <div className="text-xs text-white/40 hidden sm:block mr-2">
             Acquired on {formatDate(lot.purchaseDate)}
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setTagOpen(true)}
+            className="gap-1.5 border-white/[0.1] hover:border-white/20"
+          >
+            <Printer className="w-3.5 h-3.5 text-white/70" /> Print Vault Slip
+          </Button>
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setEditOpen(true)}
             className="gap-1.5 border-white/[0.1] hover:border-white/20"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Edit Lot
+            <Edit2 className="w-3.5 h-3.5 text-white/70" /> Edit Lot
           </Button>
         </div>
       </div>
+
 
 
       {/* Hero Remaining Stock Display */}
@@ -341,7 +354,15 @@ export default function LotDetailPage() {
           }));
         }}
       />
+
+      {/* Printable Vault Slip Modal */}
+      <VaultTagModal
+        open={tagOpen}
+        onOpenChange={setTagOpen}
+        lot={lot}
+      />
     </div>
   );
 }
+
 

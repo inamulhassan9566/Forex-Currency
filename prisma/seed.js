@@ -1,7 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL;
+
+const prisma = new PrismaClient(
+  databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {}
+);
 
 async function main() {
   console.log("Seeding Forex Lot Management System database...");

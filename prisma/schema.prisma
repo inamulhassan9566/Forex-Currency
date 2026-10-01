@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LotStatus {
+  AVAILABLE
+  PARTIALLY_SOLD
+  SOLD_OUT
+  CANCELLED
+}
+
+enum PurchaseStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum SaleStatus {
+  CONFIRMED
+  REVERSED
+}
+
+enum AllocationMethod {
+  MANUAL
+  FIFO
+}
+
+enum InventoryTransactionType {
+  PURCHASE
+  SALE
+  SALE_REVERSAL
+  PURCHASE_REVERSAL
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+enum AdjustmentType {
+  INCREASE
+  DECREASE
+}
+
+model User {
+  id           String      @id @default(cuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         Role        @default(OPERATOR)
+  status       UserStatus  @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  lotsCreated          Lot[]
+  purchasesCreated     Purchase[]
+  salesCreated         Sale[]                  @relation("SalesCreated")
+  salesReversed        Sale[]                  @relation("SalesReversed")
+  ledgerEntriesCreated InventoryTransaction[]
+  auditLogs            AuditLog[]
+  adjustmentsCreated   StockAdjustment[]
+
+  @@map("users")
+}
+
+model Currency {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  symbol            String   @default("$")
+  decimalPrecision  Int      @default(2)
+  minStockThreshold Decimal  @default(0) @db.Decimal(18, 4)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  lots                  Lot[]
+  purchases             Purchase[]
+  sales                 Sale[]
+  inventoryTransactions InventoryTransaction[]
+  profitRecords         ProfitRecord[]
+  stockAdjustments      StockAdjustment[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("currencies")
+}
+
+model Lot {
+  id                String    @id @default(cuid())
+  lotNumber         String    @unique
+  currencyId        String
+  currency          Currency  @relation(fields: [currencyId], references: [id])
+  originalQuantity  Decimal   @db.Decimal(18, 4)
+  remainingQuantity Decimal   @db.Decimal(18, 4)
+  purchasePrice     Decimal   @db.Decimal(18, 4)
+  purchaseDate      DateTime
+  totalPurchaseCost Decimal   @db.Decimal(18, 4)
+  status            LotStatus @default(AVAILABLE)
+  createdById       String
+  createdBy         User      @relation(fields: [createdById], references: [id])
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  purchase              Purchase?
+  saleAllocations       SaleLotAllocation[]
+  inventoryTransactions InventoryTransaction[]
+  profitRecords         ProfitRecord[]
+  stockAdjustments      StockAdjustment[]
+
+  @@index([lotNumber])
+  @@index([currencyId])
+  @@index([status])
+  @@index([purchaseDate])
+  @@map("lots")
+}
+
+model Purchase {
+  id              String         @id @default(cuid())
+  purchaseNumber  String         @unique
+  lotId           String         @unique
+  lot             Lot            @relation(fields: [lotId], references: [id])
+  currencyId      String
+  currency        Currency       @relation(fields: [currencyId], references: [id])
+  quantity        Decimal        @db.Decimal(18, 4)
+  purchasePrice   Decimal        @db.Decimal(18, 4)
+  totalAmount     Decimal        @db.Decimal(18, 4)
+  purchaseDate    DateTime
+  supplier        String?
+  referenceNumber String?
+  notes           String?
+  status          PurchaseStatus @default(CONFIRMED)
+  createdById     String
+  createdBy       User           @relation(fields: [createdById], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([purchaseNumber])
+  @@index([currencyId])
+  @@index([purchaseDate])
+  @@index([status])
+  @@map("purchases")
+}
+
+model Sale {
+  id                  String           @id @default(cuid())
+  saleNumber          String           @unique
+  currencyId          String
+  currency            Currency         @relation(fields: [currencyId], references: [id])
+  totalQuantity       Decimal          @db.Decimal(18, 4)
+  averageSellPrice    Decimal          @db.Decimal(18, 4)
+  totalSaleAmount     Decimal          @db.Decimal(18, 4)
+  totalPurchaseCost   Decimal          @db.Decimal(18, 4)
+  totalRealizedProfit Decimal          @db.Decimal(18, 4)
+  saleDate            DateTime
+  customerName        String?
+  referenceNumber     String?
+  notes               String?
+  allocationMethod    AllocationMethod @default(FIFO)
+  status              SaleStatus       @default(CONFIRMED)
+  reversedAt          DateTime?
+  reversalReason      String?
+  reversedById        String?
+  reversedBy          User?            @relation("SalesReversed", fields: [reversedById], references: [id])
+  createdById         String
+  createdBy           User             @relation("SalesCreated", fields: [createdById], references: [id])
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  allocations   SaleLotAllocation[]
+  profitRecords ProfitRecord[]
+
+  @@index([saleNumber])
+  @@index([currencyId])
+  @@index([saleDate])
+  @@index([status])
+  @@map("sales")
+}
+
+model SaleLotAllocation {
+  id                String   @id @default(cuid())
+  saleId            String
+  sale              Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  lotId             String
+  lot               Lot      @relation(fields: [lotId], references: [id])
+  quantity          Decimal  @db.Decimal(18, 4)
+  purchasePrice     Decimal  @db.Decimal(18, 4)
+  sellPrice         Decimal  @db.Decimal(18, 4)
+  totalPurchaseCost Decimal  @db.Decimal(18, 4)
+  totalSaleAmount   Decimal  @db.Decimal(18, 4)
+  profitPerUnit     Decimal  @db.Decimal(18, 4)
+  totalProfit       Decimal  @db.Decimal(18, 4)
+  createdAt         DateTime @default(now())
+
+  profitRecords ProfitRecord[]
+
+  @@index([saleId])
+  @@index([lotId])
+  @@map("sale_lot_allocations")
+}
+
+model InventoryTransaction {
+  id              String                   @id @default(cuid())
+  lotId           String
+  lot             Lot                      @relation(fields: [lotId], references: [id])
+  currencyId      String
+  currency        Currency                 @relation(fields: [currencyId], references: [id])
+  transactionType InventoryTransactionType
+  quantityIn      Decimal                  @default(0) @db.Decimal(18, 4)
+  quantityOut     Decimal                  @default(0) @db.Decimal(18, 4)
+  balanceAfter    Decimal                  @db.Decimal(18, 4)
+  referenceType   String
+  referenceId     String
+  notes           String?
+  transactionDate DateTime
+  createdById     String
+  createdBy       User                     @relation(fields: [createdById], references: [id])
+  createdAt       DateTime                 @default(now())
+
+  @@index([lotId])
+  @@index([currencyId])
+  @@index([transactionType])
+  @@index([transactionDate])
+  @@index([referenceId])
+  @@map("inventory_transactions")
+}
+
+model ProfitRecord {
+  id              String             @id @default(cuid())
+  saleId          String
+  sale            Sale               @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  allocationId    String
+  allocation      SaleLotAllocation  @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  lotId           String
+  lot             Lot                @relation(fields: [lotId], references: [id])
+  currencyId      String
+  currency        Currency           @relation(fields: [currencyId], references: [id])
+  quantity        Decimal            @db.Decimal(18, 4)
+  purchasePrice   Decimal            @db.Decimal(18, 4)
+  sellPrice       Decimal            @db.Decimal(18, 4)
+  profitPerUnit   Decimal            @db.Decimal(18, 4)
+  realizedProfit  Decimal            @db.Decimal(18, 4)
+  isReversed      Boolean            @default(false)
+  transactionDate DateTime
+  createdAt       DateTime           @default(now())
+
+  @@index([saleId])
+  @@index([lotId])
+  @@index([currencyId])
+  @@index([transactionDate])
+  @@index([isReversed])
+  @@map("profit_records")
+}
+
+model StockAdjustment {
+  id                        String         @id @default(cuid())
+  lotId                     String
+  lot                       Lot            @relation(fields: [lotId], references: [id])
+  currencyId                String
+  currency                  Currency       @relation(fields: [currencyId], references: [id])
+  adjustmentType            AdjustmentType
+  quantity                  Decimal        @db.Decimal(18, 4)
+  previousRemainingQuantity Decimal        @db.Decimal(18, 4)
+  newRemainingQuantity      Decimal        @db.Decimal(18, 4)
+  reason                    String
+  createdById               String
+  createdBy                 User           @relation(fields: [createdById], references: [id])
+  createdAt                 DateTime       @default(now())
+
+  @@index([lotId])
+  @@index([currencyId])
+  @@index([createdAt])
+  @@map("stock_adjustments")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSettings {
+  id                      String   @id @default("default")
+  companyName             String   @default("Apex Forex Trading Corp")
+  baseCurrency            String   @default("USD")
+  timezone                String   @default("Asia/Kolkata")
+  dateFormat              String   @default("DD/MM/YYYY")
+  defaultAllocationMethod String   @default("FIFO")
+  lotNumberPrefix         String   @default("LOT-")
+  saleNumberPrefix        String   @default("INV-")
+  purchaseNumberPrefix    String   @default("PO-")
+  financialYear           String   @default("2026-2027")
+  updatedAt               DateTime @updatedAt
+
+  @@map("system_settings")
+}

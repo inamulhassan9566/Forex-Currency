@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { LotService } from "@/services/lot.service";
+import { canCreateTransaction } from "@/lib/rbac";
+import { LotDirectCreateSchema } from "@/validators";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -28,3 +30,26 @@ export async function GET(req: NextRequest) {
     return apiError(err.message || "Failed to list lots", "SERVER_ERROR", 500);
   }
 }
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return apiError("Unauthenticated", "UNAUTHORIZED", 401);
+  if (!canCreateTransaction(user.role)) {
+    return apiError("You do not have permission to add lots", "FORBIDDEN", 403);
+  }
+
+  try {
+    const body = await req.json();
+    const parsed = LotDirectCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(parsed.error.errors[0].message, "VALIDATION_ERROR", 400);
+    }
+
+    const result = await LotService.createLot(parsed.data, user.id);
+    return apiSuccess(result, 201);
+  } catch (err: any) {
+    console.error("Create lot error:", err);
+    return apiError(err.message || "Failed to create lot", "SERVER_ERROR", 400);
+  }
+}
+

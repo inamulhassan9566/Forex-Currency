@@ -14,9 +14,12 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  Edit2,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EditLotModal } from "@/components/lots/edit-lot-modal";
 import Link from "next/link";
 
 export default function LotDetailPage() {
@@ -24,6 +27,7 @@ export default function LotDetailPage() {
   const router = useRouter();
   const [lot, setLot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     async function loadLot() {
@@ -69,7 +73,7 @@ export default function LotDetailPage() {
   return (
     <div className="space-y-8">
       {/* Top Navigation & Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="secondary" size="sm" onClick={() => router.push("/lots")} className="gap-1.5">
             <ArrowLeft className="w-4 h-4" /> Back
@@ -81,10 +85,21 @@ export default function LotDetailPage() {
           </div>
         </div>
 
-        <div className="text-xs text-white/40">
-          Acquired on {formatDate(lot.purchaseDate)}
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-white/40 hidden sm:block">
+            Acquired on {formatDate(lot.purchaseDate)}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setEditOpen(true)}
+            className="gap-1.5 border-white/[0.1] hover:border-white/20"
+          >
+            <Edit2 className="w-3.5 h-3.5" /> Edit Lot
+          </Button>
         </div>
       </div>
+
 
       {/* Hero Remaining Stock Display */}
       <div className="p-8 rounded-3xl bg-white/[0.025] border border-white/[0.08] backdrop-blur-md relative overflow-hidden">
@@ -194,6 +209,35 @@ export default function LotDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Lot Notes & Physical Storage Info */}
+      {lot.notes && (
+        <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-3 text-xs">
+          <FileText className="w-4 h-4 text-white/40 mt-0.5 shrink-0" />
+          <div>
+            <div className="text-white/40 font-medium uppercase tracking-wider text-[10px]">
+              Vault Notes & Physical Storage
+            </div>
+            <div className="text-white/80 mt-1 leading-relaxed">{lot.notes}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Lot Modal */}
+      <EditLotModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        lot={lot}
+        onSuccess={(updated) => {
+          setLot((prev: any) => ({
+            ...prev,
+            lotNumber: updated.lotNumber,
+            notes: updated.notes,
+            status: updated.status,
+          }));
+        }}
+      />
     </div>
   );
 }
+

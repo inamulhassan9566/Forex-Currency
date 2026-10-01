@@ -66,6 +66,21 @@ export default function PurchasesPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [customLotNumber, setCustomLotNumber] = useState("");
+  const [suggestedLotNumber, setSuggestedLotNumber] = useState("");
+
+  const fetchNextLot = async () => {
+    try {
+      const res = await fetch("/api/lots/next-number");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.nextLotNumber) {
+          setSuggestedLotNumber(json.data.nextLotNumber);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -112,12 +127,14 @@ export default function PurchasesPage() {
     setNotes("");
     setCustomLotNumber("");
     setPurchaseDate(new Date().toISOString().slice(0, 10));
+    fetchNextLot();
   };
 
   const handleOpenModal = () => {
     resetForm();
     setModalOpen(true);
   };
+
 
   const handleCreatePurchase = async () => {
     if (!currencyId || !quantity || !purchasePrice) {
@@ -537,15 +554,25 @@ export default function PurchasesPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-white/70">
-                      Custom Lot Number (Optional)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-white/70">
+                        Lot Number / Vault Tag
+                      </label>
+                      {suggestedLotNumber && (
+                        <span className="text-[11px] text-white/40 font-mono">
+                          Auto: {suggestedLotNumber}
+                        </span>
+                      )}
+                    </div>
                     <Input
-                      placeholder="Leave blank for auto-generation (e.g. LOT-1007)"
+                      placeholder={suggestedLotNumber ? `Leave blank for auto (${suggestedLotNumber}), or enter custom tag` : "e.g. LOT-1008 or VAULT-BAG-01"}
                       value={customLotNumber}
                       onChange={(e) => setCustomLotNumber(e.target.value)}
                       className="font-mono text-xs"
                     />
+                    <p className="text-[11px] text-white/40">
+                      Leave blank to auto-generate sequential number, or enter your internal vault envelope/tag.
+                    </p>
                   </div>
 
                   {/* Real-time spend calculation strip */}
@@ -610,12 +637,13 @@ export default function PurchasesPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-white/50 text-xs">Lot Assignment</span>
                       <span className="text-xs font-mono text-white/80">
-                        {customLotNumber || "Auto-assigned (Next sequential)"}
+                        {customLotNumber ? `${customLotNumber} (Custom Tag)` : (suggestedLotNumber || "Auto-assigned (Next sequential)")}
                       </span>
                     </div>
                   </div>
                 </div>
               )}
+
             </div>
 
             <DialogFooter className="flex items-center justify-between border-t border-white/[0.06] pt-4">

@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import FinanceDecimal from "@/lib/decimal";
 import Decimal from "decimal.js";
+import { recordAuditLog } from "@/lib/audit";
+import { PurchaseService } from "./purchase.service";
+import { LotStatus } from "@prisma/client";
 
 export class LotService {
   /**
@@ -194,4 +197,104 @@ export class LotService {
       profitMarginPercent: FinanceDecimal.toNumber(profitMarginPercent, 2),
     };
   }
+
+  /**
+   * Update Lot details (lotNumber, notes, status)
+   */
+  static async updateLot(
+    id: string,
+    input: {
+      lotNumber?: string;
+      notes?: string | null;
+      status?: LotStatus;
+    },
+    userId: string
+  ) {
+    const existing = await prisma.lot.findUnique({
+      where: { id },
+      include: { currency: true },
+    });
+
+    if (!existing) {
+      throw new Error("Lot not found");
+    }
+
+    const newLotNumber = input.lotNumber?.trim();
+    if (newLotNumber && newLotNumber !== existing.lotNumber) {
+      // Check if lot number is already taken by another lot
+      const duplicate = await prisma.lot.findUnique({
+        where: { lotNumber: newLotNumber },
+      });
+      if (duplicate && duplicate.id !== id) {
+        throw new Error(`Lot number "${newLotNumber}" is already in use by another lot.`);
+      }
+    }
+
+    const updated = await prisma.lot.update({
+      where: { id },
+      data: {
+        ...(newLotNumber ? { lotNumber: newLotNumber } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes?.trim() || null } : {}),
+        ...(input.status ? { status: input.status } : {}),
+      },
+      include: {
+        currency: true,
+      },
+    });
+
+    // Record audit log
+    await recordAuditLog({
+      userId,
+      action: "UPDATED_LOT",
+      entity: "Lot",
+      entityId: id,
+      details: {
+        oldLotNumber: existing.lotNumber,
+        newLotNumber: updated.lotNumber,
+        oldNotes: existing.notes,
+        newNotes: updated.notes,
+        oldStatus: existing.status,
+        newStatus: updated.status,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Get next suggested lot number
+   */
+  static async getNextLotNumber(): Promise<string> {
+    return PurchaseService.getNextLotNumber();
+  }
+
+  /**
+   * Direct creation of Lot (Direct inwarding / Opening stock)
+   */
+  static async createLot(
+    input: {
+      currencyId: string;
+      quantity: number;
+      purchasePrice: number;
+      purchaseDate: string | Date;
+      lotNumber?: string;
+      supplier?: string;
+      notes?: string;
+    },
+    userId: string
+  ) {
+    return PurchaseService.createPurchase(
+      {
+        currencyId: input.currencyId,
+        quantity: input.quantity,
+        purchasePrice: input.purchasePrice,
+        purchaseDate: input.purchaseDate,
+        supplier: input.supplier || "Direct Lot Inwarding",
+        notes: input.notes,
+        customLotNumber: input.lotNumber,
+      },
+      userId
+    );
+  }
 }
+

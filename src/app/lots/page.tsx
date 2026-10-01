@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { formatAmount, formatCurrency, formatDate } from "@/lib/utils";
-import { Layers, Search, Eye, Filter, Coins, CheckCircle2 } from "lucide-react";
+import { Layers, Search, Eye, Filter, Coins, CheckCircle2, Plus, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { EditLotModal } from "@/components/lots/edit-lot-modal";
+import { CreateLotModal } from "@/components/lots/create-lot-modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -24,6 +26,11 @@ export default function LotsPage() {
   const [lots, setLots] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modals state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedLot, setSelectedLot] = useState<any>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -67,7 +74,17 @@ export default function LotsPage() {
             Individual currency lots with original cost basis, remaining units, and realized returns.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            onClick={() => setCreateOpen(true)}
+            className="gap-2 shadow-[0_0_20px_rgba(255,255,255,0.06)]"
+          >
+            <Plus className="w-4 h-4" /> Buy / Add Lot
+          </Button>
+        </div>
       </div>
+
 
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -119,20 +136,21 @@ export default function LotsPage() {
               <TableHead className="text-right">BUY RATE</TableHead>
               <TableHead className="text-right">REALIZED PROFIT</TableHead>
               <TableHead>STATUS</TableHead>
+              <TableHead className="text-right">ACTION</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={8} className="py-5 text-center">
+                  <TableCell colSpan={9} className="py-5 text-center">
                     <div className="h-6 w-full bg-white/[0.03] animate-pulse rounded-lg" />
                   </TableCell>
                 </TableRow>
               ))
             ) : lots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="p-12 text-center">
+                <TableCell colSpan={9} className="p-12 text-center">
                   <EmptyState
                     title="No lots found"
                     description="No inventory lots match your selected filters."
@@ -181,6 +199,20 @@ export default function LotsPage() {
                     <TableCell>
                       <StatusBadge status={lot.status} />
                     </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedLot(lot);
+                          setEditOpen(true);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] transition inline-flex items-center gap-1.5"
+                        title="Edit Lot Number and Details"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -188,6 +220,22 @@ export default function LotsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modals */}
+      <CreateLotModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        currencies={currencies}
+        onSuccess={loadLots}
+      />
+
+      <EditLotModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        lot={selectedLot}
+        onSuccess={loadLots}
+      />
     </div>
   );
 }
+

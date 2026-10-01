@@ -100,3 +100,24 @@ export const SettingsSchema = z.object({
   purchaseNumberPrefix: z.string().default("PO-"),
   financialYear: z.string().default("2026-2027"),
 });
+
+export const LotUpdateSchema = z.object({
+  lotNumber: z
+    .string()
+    .trim()
+    .min(1, "Lot number cannot be empty")
+    .optional(),
+  notes: z.string().optional().nullable(),
+  status: z.enum(["AVAILABLE", "PARTIALLY_SOLD", "SOLD_OUT", "CANCELLED"]).optional(),
+});
+
+export const LotDirectCreateSchema = z.object({
+  currencyId: z.string().min(1, "Currency is required"),
+  quantity: z.number().positive("Quantity must be greater than 0"),
+  purchasePrice: z.number().nonnegative("Purchase price cannot be negative"),
+  purchaseDate: z.string().min(1, "Acquisition date is required"),
+  lotNumber: z.string().optional(),
+  supplier: z.string().optional(),
+  notes: z.string().optional(),
+});
+

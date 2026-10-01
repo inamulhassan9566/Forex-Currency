@@ -138,77 +138,181 @@ export default function LotDetailPage() {
               </div>
             </div>
 
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-white/40">Realized Profit</div>
-              <div className={`text-2xl font-semibold font-mono mt-1 ${isPosProfit ? "text-emerald-400" : "text-rose-400"}`}>
-                +₹{formatAmount(lot.realizedProfitNum, prec)}
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-white/40">Realized Profit</div>
+                <div className={`text-2xl font-semibold font-mono mt-1 ${isPosProfit ? "text-emerald-400" : "text-rose-400"}`}>
+                  +₹{formatAmount(lot.realizedProfitNum, prec)}
+                </div>
+                {lot.soldQuantityNum > 0 && (
+                  <div className="text-[11px] font-mono text-emerald-400/80 mt-0.5">
+                    {lot.profitMarginPercent}% margin
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* TRANSACTION HISTORY VISUAL TIMELINE */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-white">Transaction History</h2>
-          <p className="text-xs text-white/50 mt-0.5">
-            Chronological lifecycle and ledger balance progression for this lot.
-          </p>
-        </div>
+        {/* Acquisition & Source Context */}
+        {lot.purchase && (
+          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+              <div className="text-white/40 text-[10px] uppercase tracking-wider">Purchase Order</div>
+              <div className="font-mono text-sm font-semibold text-white mt-1">
+                {lot.purchase.purchaseNumber}
+              </div>
+            </div>
+            <div>
+              <div className="text-white/40 text-[10px] uppercase tracking-wider">Supplier / Desk</div>
+              <div className="text-sm font-medium text-white/90 mt-1">
+                {lot.purchase.supplier || "Direct Desk Inwarding"}
+              </div>
+            </div>
+            <div>
+              <div className="text-white/40 text-[10px] uppercase tracking-wider">Supplier Reference</div>
+              <div className="font-mono text-sm text-white/70 mt-1">
+                {lot.purchase.referenceNumber || "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-white/40 text-[10px] uppercase tracking-wider">Recorded By</div>
+              <div className="text-sm text-white/70 mt-1">
+                {lot.purchase.createdBy?.name || "System"}
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm">
-          <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-white/[0.1]">
-            {lot.inventoryTransactions?.map((tx: any, idx: number) => {
-              const isPurchase = tx.transactionType === "PURCHASE";
-              const isSale = tx.transactionType === "SALE";
-              const isReversal = tx.transactionType === "SALE_REVERSAL";
+        {/* SALES ALLOCATIONS TABLE */}
+        {lot.saleAllocations && lot.saleAllocations.length > 0 && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Sales Allocations</h2>
+              <p className="text-xs text-white/50 mt-0.5">
+                Outward customer sales orders that were matched and fulfilled from this lot.
+              </p>
+            </div>
 
-              return (
-                <div key={tx.id} className="relative group">
-                  {/* Timeline Node Indicator */}
-                  <div
-                    className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 ${
-                      isPurchase
-                        ? "bg-white border-white"
-                        : isSale
-                        ? "bg-[#070708] border-emerald-400"
-                        : isReversal
-                        ? "bg-[#070708] border-rose-400"
-                        : "bg-[#070708] border-white/40"
-                    }`}
-                  />
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden backdrop-blur-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-white/[0.06] bg-white/[0.02] text-white/40 uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-3.5 px-4 font-medium">Invoice</th>
+                    <th className="py-3.5 px-4 font-medium">Sale Date</th>
+                    <th className="py-3.5 px-4 text-right font-medium">Units Sold</th>
+                    <th className="py-3.5 px-4 text-right font-medium">Selling Rate</th>
+                    <th className="py-3.5 px-4 text-right font-medium">Sale Value</th>
+                    <th className="py-3.5 px-4 text-right font-medium">Realized Profit</th>
+                    <th className="py-3.5 px-4 text-right font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {lot.saleAllocations.map((alloc: any) => {
+                    const isAllocPos = Number(alloc.totalProfit) >= 0;
+                    return (
+                      <tr key={alloc.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-white">
+                          {alloc.sale?.saleNumber || "—"}
+                        </td>
+                        <td className="py-3.5 px-4 text-white/50">
+                          {formatDate(alloc.sale?.saleDate || alloc.createdAt)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-white/90">
+                          {formatAmount(alloc.quantity)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-white/70">
+                          ₹{formatAmount(alloc.sellPrice, prec)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-white font-medium">
+                          ₹{formatAmount(alloc.totalSaleAmount, prec)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-semibold">
+                          <span className={isAllocPos ? "text-emerald-400" : "text-rose-400"}>
+                            +₹{formatAmount(alloc.totalProfit, prec)}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {alloc.sale?.id && (
+                            <Link
+                              href={`/sales/${alloc.sale.id}`}
+                              className="inline-flex items-center gap-1 text-[11px] text-white/50 hover:text-white transition"
+                            >
+                              <span>View</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-medium text-white/40 uppercase">
-                          {formatDate(tx.transactionDate)}
-                        </span>
-                        <span className="text-xs font-semibold text-white">
-                          {isPurchase && `Purchase +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
-                          {isSale && `Sale -${formatAmount(tx.quantityOut)} ${lot.currency.code}`}
-                          {isReversal && `Reversal +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
-                        </span>
+        {/* TRANSACTION HISTORY VISUAL TIMELINE */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-white">Inventory Balance Progression</h2>
+            <p className="text-xs text-white/50 mt-0.5">
+              Chronological ledger tracking inward purchases, outward sales, and real-time balance after each transaction.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm">
+            <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-white/[0.1]">
+              {lot.inventoryTransactions?.map((tx: any, idx: number) => {
+                const isPurchase = tx.transactionType === "PURCHASE";
+                const isSale = tx.transactionType === "SALE";
+                const isReversal = tx.transactionType === "SALE_REVERSAL";
+
+                return (
+                  <div key={tx.id} className="relative group">
+                    {/* Timeline Node Indicator */}
+                    <div
+                      className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 ${
+                        isPurchase
+                          ? "bg-white border-white"
+                          : isSale
+                          ? "bg-[#070708] border-emerald-400"
+                          : isReversal
+                          ? "bg-[#070708] border-rose-400"
+                          : "bg-[#070708] border-white/40"
+                      }`}
+                    />
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-medium text-white/40 uppercase">
+                            {formatDate(tx.transactionDate)}
+                          </span>
+                          <span className="text-xs font-semibold text-white">
+                            {isPurchase && `Purchase +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
+                            {isSale && `Sale -${formatAmount(tx.quantityOut)} ${lot.currency.code}`}
+                            {isReversal && `Reversal +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
+                          </span>
+                        </div>
+                        <div className="text-xs text-white/50 mt-1">
+                          {tx.notes || (tx.referenceType === "PURCHASE" ? "Initial lot creation" : "Sales deduction")}
+                        </div>
                       </div>
-                      <div className="text-xs text-white/50 mt-1">
-                        {tx.notes || (tx.referenceType === "PURCHASE" ? "Initial lot creation" : "Sales deduction")}
-                      </div>
-                    </div>
 
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase tracking-wider text-white/40">Current Balance</div>
-                      <div className="text-sm font-mono font-semibold text-white">
-                        {formatAmount(tx.balanceAfter)} {lot.currency.code}
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase tracking-wider text-white/40">Current Balance</div>
+                        <div className="text-sm font-mono font-semibold text-white">
+                          {formatAmount(tx.balanceAfter)} {lot.currency.code}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+
 
       {/* Lot Notes & Physical Storage Info */}
       {lot.notes && (

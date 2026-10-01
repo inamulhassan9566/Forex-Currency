@@ -94,6 +94,10 @@ export class SaleService {
         throw new Error(`Lot ${lot.lotNumber} belongs to ${lot.currency.code}, not ${currency.code}`);
       }
 
+      if (lot.status === "CANCELLED") {
+        throw new Error(`Lot ${lot.lotNumber} is marked as CANCELLED / LOCKED and cannot be sold.`);
+      }
+
       const lotRemaining = FinanceDecimal.parse(lot.remainingQuantity);
       const allocQty = FinanceDecimal.parse(alloc.quantity);
       const sp = FinanceDecimal.parse(alloc.sellPrice);
@@ -216,6 +220,10 @@ export class SaleService {
 
         if (lot.currencyId !== currencyId) {
           throw new Error(`Lot ${lot.lotNumber} does not match currency ${currency.code}`);
+        }
+
+        if (lot.status === "CANCELLED") {
+          throw new Error(`Lot ${lot.lotNumber} is marked as CANCELLED / LOCKED and cannot be sold.`);
         }
 
         const lotRemaining = FinanceDecimal.parse(lot.remainingQuantity);

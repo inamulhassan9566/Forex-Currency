@@ -67,6 +67,7 @@ export default function PurchasesPage() {
   const [notes, setNotes] = useState("");
   const [customLotNumber, setCustomLotNumber] = useState("");
   const [suggestedLotNumber, setSuggestedLotNumber] = useState("");
+  const [entryType, setEntryType] = useState<"PURCHASE" | "OPENING_BALANCE">("PURCHASE");
 
   const fetchNextLot = async () => {
     try {
@@ -126,6 +127,7 @@ export default function PurchasesPage() {
     setReferenceNumber("");
     setNotes("");
     setCustomLotNumber("");
+    setEntryType("PURCHASE");
     setPurchaseDate(new Date().toISOString().slice(0, 10));
     fetchNextLot();
   };
@@ -156,6 +158,7 @@ export default function PurchasesPage() {
           referenceNumber: referenceNumber.trim() || undefined,
           notes: notes.trim() || undefined,
           customLotNumber: customLotNumber.trim() || undefined,
+          entryType,
         }),
       });
 
@@ -298,10 +301,21 @@ export default function PurchasesPage() {
             ) : (
               purchases.map((p) => {
                 const prec = p.currency.decimalPrecision;
+                const isOpening =
+                  p.supplier?.toLowerCase().includes("opening") ||
+                  p.referenceNumber?.toLowerCase().includes("opening") ||
+                  false;
                 return (
                   <TableRow key={p.id} className="h-16">
                     <TableCell className="font-mono text-xs font-semibold text-white">
-                      {p.purchaseNumber}
+                      <div className="flex items-center gap-2">
+                        <span>{p.purchaseNumber}</span>
+                        {isOpening && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                            🏛️ Opening
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Link
@@ -516,6 +530,40 @@ export default function PurchasesPage() {
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <div className="text-xs font-medium uppercase tracking-wider text-white/50">
                     03 Purchase Price & Settlement Details
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryType("PURCHASE");
+                        if (supplier === "Opening Vault Balance") setSupplier("");
+                      }}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                        entryType === "PURCHASE"
+                          ? "bg-white text-black font-semibold shadow-sm"
+                          : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Vendor Purchase</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryType("OPENING_BALANCE");
+                        setSupplier("Opening Vault Balance");
+                        if (!notes) setNotes("Initial vault cash balance");
+                      }}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                        entryType === "OPENING_BALANCE"
+                          ? "bg-amber-400 text-black font-semibold shadow-sm"
+                          : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Opening Stock Balance</span>
+                    </button>
                   </div>
 
                   <div className="space-y-1.5">

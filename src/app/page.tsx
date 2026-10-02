@@ -101,6 +101,19 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/inventory">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1.5 border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Vault Desk</span>
+            </Button>
+          </Link>
           <Link href="/sales">
             <Button variant="primary" size="sm" className="gap-1.5 shadow-md">
               <TrendingUp className="w-3.5 h-3.5 text-black" />

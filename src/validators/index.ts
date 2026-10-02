@@ -14,6 +14,7 @@ export const PurchaseCreateSchema = z.object({
   referenceNumber: z.string().optional(),
   notes: z.string().optional(),
   customLotNumber: z.string().optional(),
+  entryType: z.enum(["PURCHASE", "OPENING_BALANCE"]).default("PURCHASE").optional(),
 });
 
 export const SaleAllocationItemSchema = z.object({
@@ -119,5 +120,6 @@ export const LotDirectCreateSchema = z.object({
   lotNumber: z.string().optional(),
   supplier: z.string().optional(),
   notes: z.string().optional(),
+  entryType: z.enum(["PURCHASE", "OPENING_BALANCE"]).default("PURCHASE").optional(),
 });
 

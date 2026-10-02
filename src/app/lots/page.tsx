@@ -29,6 +29,7 @@ export default function LotsPage() {
 
   // Modals state
   const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<"OPENING_STOCK" | "PURCHASE">("PURCHASE");
   const [editOpen, setEditOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
 
@@ -36,12 +37,17 @@ export default function LotsPage() {
   const [search, setSearch] = useState("");
   const [currencyFilter, setCurrencyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"" | "OPENING" | "PURCHASE">("");
 
   const loadLots = async () => {
     setLoading(true);
     try {
       const [lRes, cRes] = await Promise.all([
-        fetch(`/api/lots?currencyId=${currencyFilter}&status=${statusFilter}&search=${encodeURIComponent(search)}`),
+        fetch(
+          `/api/lots?currencyId=${currencyFilter}&status=${statusFilter}&source=${sourceFilter}&search=${encodeURIComponent(
+            search
+          )}`
+        ),
         fetch("/api/currencies?activeOnly=true"),
       ]);
 
@@ -62,46 +68,77 @@ export default function LotsPage() {
 
   useEffect(() => {
     loadLots();
-  }, [currencyFilter, statusFilter, search]);
+  }, [currencyFilter, statusFilter, sourceFilter, search]);
+
+  const openingCount = lots.filter((l) => l.isOpeningStock).length;
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">Lots</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Lots & Vault Inventory</h1>
           <p className="text-sm text-white/50 mt-1">
             Individual currency lots with original cost basis, remaining units, and realized returns.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setCreateMode("OPENING_STOCK");
+              setCreateOpen(true);
+            }}
+            className="gap-2 border-amber-500/30 hover:border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200"
+          >
+            <Layers className="w-4 h-4 text-amber-400" />
+            + Record Opening Stock
+          </Button>
           <Button
             variant="primary"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => {
+              setCreateMode("PURCHASE");
+              setCreateOpen(true);
+            }}
             className="gap-2 shadow-[0_0_20px_rgba(255,255,255,0.06)]"
           >
-            <Plus className="w-4 h-4" /> Buy / Add Lot
+            <Plus className="w-4 h-4" />
+            + Buy / Inward Lot
           </Button>
         </div>
       </div>
 
-
-      {/* Segmented Status Tabs & Action Bar */}
+      {/* Segmented Status & Source Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-x-auto">
           {[
-            { id: "", label: "All Lots" },
-            { id: "AVAILABLE", label: "In Stock" },
-            { id: "PARTIALLY_SOLD", label: "Partially Sold" },
-            { id: "SOLD_OUT", label: "Depleted" },
+            { id: "ALL", label: "All Lots", active: sourceFilter === "" && statusFilter === "" },
+            { id: "OPENING", label: `🏛️ Opening Stock (${openingCount})`, active: sourceFilter === "OPENING" },
+            { id: "PURCHASE", label: "📦 Purchases", active: sourceFilter === "PURCHASE" },
+            { id: "AVAILABLE", label: "In Stock", active: statusFilter === "AVAILABLE" },
+            { id: "PARTIALLY_SOLD", label: "Partially Sold", active: statusFilter === "PARTIALLY_SOLD" },
+            { id: "SOLD_OUT", label: "Depleted", active: statusFilter === "SOLD_OUT" },
           ].map((tab) => {
-            const isSelected = statusFilter === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setStatusFilter(tab.id)}
+                onClick={() => {
+                  if (tab.id === "ALL") {
+                    setSourceFilter("");
+                    setStatusFilter("");
+                  } else if (tab.id === "OPENING") {
+                    setSourceFilter("OPENING");
+                    setStatusFilter("");
+                  } else if (tab.id === "PURCHASE") {
+                    setSourceFilter("PURCHASE");
+                    setStatusFilter("");
+                  } else {
+                    setSourceFilter("");
+                    setStatusFilter(tab.id);
+                  }
+                }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                  isSelected
+                  tab.active
                     ? "bg-white text-black font-semibold shadow-sm"
                     : "text-white/60 hover:text-white hover:bg-white/[0.05]"
                 }`}
@@ -120,11 +157,17 @@ export default function LotsPage() {
               if (lots.length === 0) return;
               const csvContent =
                 "data:text/csv;charset=utf-8," +
-                ["Lot Number,Currency,Purchase Date,Original Qty,Remaining Qty,Buy Rate,Realized Profit,Status"]
+                [
+                  "Lot Number,Type,Currency,Purchase Date,Original Qty,Remaining Qty,Buy Rate,Realized Profit,Status",
+                ]
                   .concat(
                     lots.map(
                       (l) =>
-                        `"${l.lotNumber}","${l.currency.code}","${l.purchaseDate}","${l.originalQuantity}","${l.remainingQuantity}","${l.purchasePrice}","${l.realizedProfit}","${l.status}"`
+                        `"${l.lotNumber}","${l.isOpeningStock ? "OPENING_STOCK" : "PURCHASE"}","${
+                          l.currency.code
+                        }","${l.purchaseDate}","${l.originalQuantity}","${l.remainingQuantity}","${
+                          l.purchasePrice
+                        }","${l.realizedProfit}","${l.status}"`
                     )
                   )
                   .join("\n");
@@ -155,10 +198,7 @@ export default function LotsPage() {
           />
         </div>
         <div className="w-full sm:w-48">
-          <Select
-            value={currencyFilter}
-            onChange={(e) => setCurrencyFilter(e.target.value)}
-          >
+          <Select value={currencyFilter} onChange={(e) => setCurrencyFilter(e.target.value)}>
             <option value="">All Currencies</option>
             {currencies.map((c) => (
               <option key={c.id} value={c.id}>
@@ -227,6 +267,11 @@ export default function LotsPage() {
                         <div className="flex items-center gap-2">
                           <Layers className="w-3.5 h-3.5 text-white/40 group-hover:text-white transition" />
                           <span className="text-sm font-semibold">{lot.lotNumber}</span>
+                          {lot.isOpeningStock && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 inline-flex items-center gap-1">
+                              🏛️ Opening
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-1">
                           {daysOld <= 3 ? (
@@ -252,7 +297,10 @@ export default function LotsPage() {
                     </TableCell>
 
                     <TableCell className="text-xs text-white/50 whitespace-nowrap">
-                      {formatDate(lot.purchaseDate)}
+                      <div>{formatDate(lot.purchaseDate)}</div>
+                      <div className="text-[10px] text-white/40 truncate max-w-[120px]">
+                        {lot.purchase?.supplier || (lot.isOpeningStock ? "Opening Balance" : "Vendor Purchase")}
+                      </div>
                     </TableCell>
 
                     {/* Linear Micro Depletion Bar & Balance */}
@@ -315,7 +363,6 @@ export default function LotsPage() {
               })
             )}
           </TableBody>
-
         </Table>
       </div>
 
@@ -324,6 +371,7 @@ export default function LotsPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         currencies={currencies}
+        initialMode={createMode}
         onSuccess={loadLots}
       />
 
@@ -336,4 +384,3 @@ export default function LotsPage() {
     </div>
   );
 }
-

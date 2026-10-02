@@ -12,6 +12,7 @@ export interface CreatePurchaseInput {
   referenceNumber?: string;
   notes?: string;
   customLotNumber?: string;
+  entryType?: "PURCHASE" | "OPENING_BALANCE";
 }
 
 export class PurchaseService {
@@ -142,17 +143,20 @@ export class PurchaseService {
       });
 
       // 3. Create Inventory Transaction (Ledger)
+      const isOpening = input.entryType === "OPENING_BALANCE";
       await tx.inventoryTransaction.create({
         data: {
           lotId: lot.id,
           currencyId,
-          transactionType: "PURCHASE",
+          transactionType: isOpening ? "OPENING_BALANCE" : "PURCHASE",
           quantityIn: qtyDec,
           quantityOut: new Decimal(0),
           balanceAfter: qtyDec,
-          referenceType: "PURCHASE",
+          referenceType: isOpening ? "OPENING_BALANCE" : "PURCHASE",
           referenceId: purchase.id,
-          notes: `Stock purchase for ${lotNumber} via ${purchaseNumber}`,
+          notes: isOpening
+            ? (notes || `Opening stock balance for ${lotNumber}`)
+            : `Stock purchase for ${lotNumber} via ${purchaseNumber}`,
           transactionDate: dateObj,
           createdById: userId,
         },
@@ -164,10 +168,11 @@ export class PurchaseService {
     // Record audit log asynchronously
     await recordAuditLog({
       userId,
-      action: "CREATED_PURCHASE",
+      action: input.entryType === "OPENING_BALANCE" ? "RECORDED_OPENING_STOCK" : "CREATED_PURCHASE",
       entity: "Purchase",
       entityId: result.purchase.id,
       details: {
+        entryType: input.entryType || "PURCHASE",
         purchaseNumber: result.purchase.purchaseNumber,
         lotNumber: result.lot.lotNumber,
         currencyCode: currency.code,

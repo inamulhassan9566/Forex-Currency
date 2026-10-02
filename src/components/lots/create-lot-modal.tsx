@@ -14,6 +14,7 @@ interface CreateLotModalProps {
   onOpenChange: (open: boolean) => void;
   currencies: any[];
   onSuccess: () => void;
+  initialMode?: "OPENING_STOCK" | "PURCHASE";
 }
 
 export function CreateLotModal({
@@ -21,9 +22,15 @@ export function CreateLotModal({
   onOpenChange,
   currencies,
   onSuccess,
+  initialMode = "PURCHASE",
 }: CreateLotModalProps) {
   const { success, error } = useToast();
   const [submitting, setSubmitting] = useState(false);
+
+  // Mode: Opening Stock vs Purchase
+  const [entryType, setEntryType] = useState<"PURCHASE" | "OPENING_BALANCE">(
+    initialMode === "OPENING_STOCK" ? "OPENING_BALANCE" : "PURCHASE"
+  );
 
   // Form State
   const [lotNumber, setLotNumber] = useState("");
@@ -31,7 +38,9 @@ export function CreateLotModal({
   const [quantity, setQuantity] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
-  const [supplier, setSupplier] = useState("Direct Lot Acquisition");
+  const [supplier, setSupplier] = useState(
+    initialMode === "OPENING_STOCK" ? "Opening Vault Balance" : "Direct Lot Acquisition"
+  );
   const [notes, setNotes] = useState("");
 
   // Auto lot number placeholder
@@ -54,6 +63,8 @@ export function CreateLotModal({
 
   useEffect(() => {
     if (open) {
+      const isOpening = initialMode === "OPENING_STOCK";
+      setEntryType(isOpening ? "OPENING_BALANCE" : "PURCHASE");
       fetchNextLotNumber();
       if (currencies.length > 0 && !currencyId) {
         setCurrencyId(currencies[0].id);
@@ -61,10 +72,9 @@ export function CreateLotModal({
       setQuantity("");
       setPurchasePrice("");
       setPurchaseDate(new Date().toISOString().slice(0, 10));
-      setSupplier("Direct Lot Acquisition");
-      setNotes("");
+      setSupplier(isOpening ? "Opening Vault Balance" : "Direct Lot Acquisition");
     }
-  }, [open, currencies]);
+  }, [open, initialMode, currencies]);
 
   const selectedCurrency = currencies.find((c) => c.id === currencyId) || currencies[0];
   const totalCost = Number(quantity || 0) * Number(purchasePrice || 0);
@@ -95,6 +105,7 @@ export function CreateLotModal({
           lotNumber: lotNumber.trim() || undefined,
           supplier: supplier.trim() || undefined,
           notes: notes.trim() || undefined,
+          entryType,
         }),
       });
 
@@ -105,8 +116,8 @@ export function CreateLotModal({
 
       const createdLot = json.data?.lot || json.data;
       success(
-        "Lot Created Successfully",
-        `Created lot ${createdLot.lotNumber} with ${formatAmount(quantity)} ${selectedCurrency?.code} in active inventory.`
+        entryType === "OPENING_BALANCE" ? "Opening Stock Recorded" : "Lot Inwarded Successfully",
+        `Recorded ${formatAmount(quantity)} ${selectedCurrency?.code} in active inventory (Lot: ${createdLot.lotNumber}).`
       );
       onSuccess();
       onOpenChange(false);
@@ -117,22 +128,65 @@ export function CreateLotModal({
     }
   };
 
+  const isOpening = entryType === "OPENING_BALANCE";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange} maxWidth="max-w-xl">
       <form onSubmit={handleSubmit} className="space-y-6">
         <DialogHeader>
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white">
-              <Plus className="w-4 h-4" />
+              {isOpening ? <Layers className="w-4 h-4 text-emerald-400" /> : <Plus className="w-4 h-4" />}
             </div>
             <div>
-              <DialogTitle>Add / Buy Inventory Lot</DialogTitle>
+              <DialogTitle>
+                {isOpening ? "Record Opening Stock Balance" : "Inward / Buy Currency Lot"}
+              </DialogTitle>
               <DialogDescription>
-                Direct inwarding of physical currency stock into active inventory.
+                {isOpening
+                  ? "Inward initial physical vault cash balance into active inventory."
+                  : "Direct inwarding of physical foreign currency notes into active vault."}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
+
+        {/* Mode Selector Tabs */}
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+          <button
+            type="button"
+            onClick={() => {
+              setEntryType("OPENING_BALANCE");
+              setSupplier("Opening Vault Balance");
+              if (!notes) setNotes("Initial vault cash balance on system onboarding");
+            }}
+            className={`py-2 px-3 rounded-lg text-xs font-medium transition flex items-center justify-center gap-2 ${
+              isOpening
+                ? "bg-white text-black font-semibold shadow-sm"
+                : "text-white/60 hover:text-white hover:bg-white/[0.04]"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Opening Stock Balance</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEntryType("PURCHASE");
+              setSupplier("Direct Lot Acquisition");
+              if (notes === "Initial vault cash balance on system onboarding") setNotes("");
+            }}
+            className={`py-2 px-3 rounded-lg text-xs font-medium transition flex items-center justify-center gap-2 ${
+              !isOpening
+                ? "bg-white text-black font-semibold shadow-sm"
+                : "text-white/60 hover:text-white hover:bg-white/[0.04]"
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Direct Inward / Buy</span>
+          </button>
+        </div>
 
         <div className="space-y-4">
           {/* Lot Number Input (Custom or Auto) */}

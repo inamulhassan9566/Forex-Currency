@@ -86,6 +86,12 @@ export default function LotDetailPage() {
             <span className="font-mono text-xl font-semibold text-white">{lot.lotNumber}</span>
             <span className="text-sm font-semibold text-white/60">{lot.currency.code}</span>
             <StatusBadge status={lot.status} />
+            {lot.isOpeningStock && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 inline-flex items-center gap-1.5">
+                <Layers className="w-3 h-3 text-amber-400" />
+                Opening Stock
+              </span>
+            )}
           </div>
         </div>
 
@@ -112,7 +118,20 @@ export default function LotDetailPage() {
         </div>
       </div>
 
-
+      {/* Opening Stock Banner if applicable */}
+      {lot.isOpeningStock && (
+        <div className="p-4 rounded-2xl bg-amber-500/[0.05] border border-amber-500/20 flex items-center gap-3.5 backdrop-blur-sm">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5 text-amber-400" />
+          </div>
+          <div className="text-xs">
+            <div className="font-semibold text-amber-300 text-sm">Opening Vault Stock Balance</div>
+            <div className="text-white/60 mt-0.5">
+              This lot was registered as initial physical vault stock during onboarding. It is tracked in the live inventory ledger and is fully active for FIFO sales allocation and realized profit calculation.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero Remaining Stock Display */}
       <div className="p-8 rounded-3xl bg-white/[0.025] border border-white/[0.08] backdrop-blur-md relative overflow-hidden">
@@ -276,6 +295,7 @@ export default function LotDetailPage() {
           <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm">
             <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-white/[0.1]">
               {lot.inventoryTransactions?.map((tx: any, idx: number) => {
+                const isOpening = tx.transactionType === "OPENING_BALANCE";
                 const isPurchase = tx.transactionType === "PURCHASE";
                 const isSale = tx.transactionType === "SALE";
                 const isReversal = tx.transactionType === "SALE_REVERSAL";
@@ -285,7 +305,9 @@ export default function LotDetailPage() {
                     {/* Timeline Node Indicator */}
                     <div
                       className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 ${
-                        isPurchase
+                        isOpening
+                          ? "bg-amber-400 border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                          : isPurchase
                           ? "bg-white border-white"
                           : isSale
                           ? "bg-[#070708] border-emerald-400"
@@ -302,13 +324,14 @@ export default function LotDetailPage() {
                             {formatDate(tx.transactionDate)}
                           </span>
                           <span className="text-xs font-semibold text-white">
+                            {isOpening && `Opening Stock +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
                             {isPurchase && `Purchase +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
                             {isSale && `Sale -${formatAmount(tx.quantityOut)} ${lot.currency.code}`}
                             {isReversal && `Reversal +${formatAmount(tx.quantityIn)} ${lot.currency.code}`}
                           </span>
                         </div>
                         <div className="text-xs text-white/50 mt-1">
-                          {tx.notes || (tx.referenceType === "PURCHASE" ? "Initial lot creation" : "Sales deduction")}
+                          {tx.notes || (isOpening ? "Initial vault balance" : tx.referenceType === "PURCHASE" ? "Initial lot creation" : "Sales deduction")}
                         </div>
                       </div>
 

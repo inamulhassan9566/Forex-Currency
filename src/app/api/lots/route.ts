@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const currencyId = searchParams.get("currencyId") || undefined;
   const status = (searchParams.get("status") as any) || undefined;
+  const source = (searchParams.get("source") as any) || undefined;
   const search = searchParams.get("search") || undefined;
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "50", 10);
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
     const data = await LotService.listLots({
       currencyId,
       status,
+      source,
       search,
       page,
       limit,

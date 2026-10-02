@@ -12,6 +12,7 @@ export class LotService {
   static async listLots(params?: {
     currencyId?: string;
     status?: "AVAILABLE" | "PARTIALLY_SOLD" | "SOLD_OUT" | "CANCELLED";
+    source?: "ALL" | "OPENING" | "PURCHASE";
     search?: string;
     page?: number;
     limit?: number;
@@ -30,6 +31,24 @@ export class LotService {
       where.status = params.status;
     }
 
+    if (params?.source === "OPENING") {
+      where.OR = [
+        { purchase: { supplier: { contains: "Opening", mode: "insensitive" } } },
+        { purchase: { referenceNumber: { contains: "OPENING", mode: "insensitive" } } },
+        { notes: { contains: "Opening", mode: "insensitive" } },
+      ];
+    } else if (params?.source === "PURCHASE") {
+      where.AND = [
+        {
+          NOT: [
+            { purchase: { supplier: { contains: "Opening", mode: "insensitive" } } },
+            { purchase: { referenceNumber: { contains: "OPENING", mode: "insensitive" } } },
+            { notes: { contains: "Opening", mode: "insensitive" } },
+          ],
+        },
+      ];
+    }
+
     if (params?.search) {
       const q = params.search.trim();
       where.lotNumber = { contains: q, mode: "insensitive" };
@@ -42,7 +61,7 @@ export class LotService {
         include: {
           currency: true,
           purchase: {
-            select: { id: true, purchaseNumber: true, supplier: true, purchaseDate: true },
+            select: { id: true, purchaseNumber: true, supplier: true, purchaseDate: true, referenceNumber: true },
           },
           saleAllocations: {
             include: {
@@ -84,6 +103,12 @@ export class LotService {
 
       const prec = lot.currency.decimalPrecision;
 
+      const isOpeningStock =
+        lot.purchase?.supplier?.toLowerCase().includes("opening") ||
+        lot.purchase?.referenceNumber?.toLowerCase().includes("opening") ||
+        lot.notes?.toLowerCase().includes("opening") ||
+        false;
+
       return {
         id: lot.id,
         lotNumber: lot.lotNumber,
@@ -101,6 +126,8 @@ export class LotService {
         status: lot.status,
         notes: lot.notes,
         purchase: lot.purchase,
+        isOpeningStock,
+        acquisitionType: isOpeningStock ? "OPENING_STOCK" : "PURCHASE",
         createdBy: lot.createdBy,
         createdAt: lot.createdAt,
       };
@@ -184,9 +211,17 @@ export class LotService {
       : new Decimal(0);
 
     const prec = lot.currency.decimalPrecision;
+    const isOpeningStock =
+      lot.purchase?.supplier?.toLowerCase().includes("opening") ||
+      lot.purchase?.referenceNumber?.toLowerCase().includes("opening") ||
+      lot.notes?.toLowerCase().includes("opening") ||
+      lot.inventoryTransactions?.some((tx: any) => tx.transactionType === "OPENING_BALANCE") ||
+      false;
 
     return {
       ...lot,
+      isOpeningStock,
+      acquisitionType: isOpeningStock ? "OPENING_STOCK" : "PURCHASE",
       originalQuantityNum: FinanceDecimal.toNumber(origQty, 4),
       remainingQuantityNum: FinanceDecimal.toNumber(remQty, 4),
       soldQuantityNum: FinanceDecimal.toNumber(soldQty, 4),
@@ -280,18 +315,21 @@ export class LotService {
       lotNumber?: string;
       supplier?: string;
       notes?: string;
+      entryType?: "PURCHASE" | "OPENING_BALANCE";
     },
     userId: string
   ) {
+    const isOpening = input.entryType === "OPENING_BALANCE";
     return PurchaseService.createPurchase(
       {
         currencyId: input.currencyId,
         quantity: input.quantity,
         purchasePrice: input.purchasePrice,
         purchaseDate: input.purchaseDate,
-        supplier: input.supplier || "Direct Lot Inwarding",
+        supplier: input.supplier || (isOpening ? "Opening Vault Balance" : "Direct Lot Inwarding"),
         notes: input.notes,
         customLotNumber: input.lotNumber,
+        entryType: input.entryType || "PURCHASE",
       },
       userId
     );

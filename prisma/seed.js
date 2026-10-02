@@ -123,9 +123,11 @@ async function main() {
     date,
     supplier,
     notes,
+    entryType = "PURCHASE",
   }) {
     const curr = currencyMap[currencyCode];
     const totalCost = Number((quantity * price).toFixed(4));
+    const isOpening = entryType === "OPENING_BALANCE";
 
     const lot = await prisma.lot.create({
       data: {
@@ -158,18 +160,18 @@ async function main() {
       },
     });
 
-    // Ledger Entry for Purchase
+    // Ledger Entry for Purchase / Opening Balance
     await prisma.inventoryTransaction.create({
       data: {
         lotId: lot.id,
         currencyId: curr.id,
-        transactionType: "PURCHASE",
+        transactionType: isOpening ? "OPENING_BALANCE" : "PURCHASE",
         quantityIn: quantity,
         quantityOut: 0,
         balanceAfter: quantity,
-        referenceType: "PURCHASE",
+        referenceType: isOpening ? "OPENING_BALANCE" : "PURCHASE",
         referenceId: purchase.id,
-        notes: `Initial stock purchase for ${lotNumber}`,
+        notes: isOpening ? `Opening vault balance for ${lotNumber}` : `Initial stock purchase for ${lotNumber}`,
         transactionDate: new Date(date),
         createdById: operator.id,
       },
@@ -347,8 +349,9 @@ async function main() {
     quantity: 200,
     price: 93.5,
     date: "2026-09-28T09:00:00Z",
-    supplier: "Global Forex Wholesale",
-    notes: "Initial Batch - USD",
+    supplier: "Opening Vault Balance",
+    notes: "Initial vault cash balance on system onboarding",
+    entryType: "OPENING_BALANCE",
   });
 
   const p2 = await recordPurchase({

@@ -121,6 +121,7 @@ export default function LedgerPage() {
             onChange={(e) => setTypeFilter(e.target.value)}
           >
             <option value="">All Movement Types</option>
+            <option value="OPENING_BALANCE">🏛️ Opening Stock Balance</option>
             <option value="PURCHASE">Purchase (Inbound)</option>
             <option value="SALE">Sale (Outbound)</option>
             <option value="SALE_REVERSAL">Sale Reversal (+)</option>
@@ -185,7 +186,9 @@ export default function LedgerPage() {
                   <TableCell>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase ${
-                        tx.transactionType === "PURCHASE"
+                        tx.transactionType === "OPENING_BALANCE"
+                          ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                          : tx.transactionType === "PURCHASE"
                           ? "bg-white/10 text-white"
                           : tx.transactionType === "SALE"
                           ? "bg-emerald-500/10 text-emerald-400"
@@ -194,7 +197,7 @@ export default function LedgerPage() {
                           : "bg-amber-500/10 text-amber-400"
                       }`}
                     >
-                      {tx.transactionType.replace("_", " ")}
+                      {tx.transactionType === "OPENING_BALANCE" ? "OPENING STOCK" : tx.transactionType.replace("_", " ")}
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs text-emerald-400 tabular-nums">

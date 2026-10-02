@@ -38,23 +38,29 @@ export default function ReportsPage() {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [purchaseData, setPurchaseData] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
+  const [ledgerData, setLedgerData] = useState<any[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [lRes, cRes, sRes, pRes, curRes] = await Promise.all([
+      const [lRes, cRes, sRes, pRes, curRes, ledRes] = await Promise.all([
         fetch(`/api/reports/lot-profit?currencyId=${selectedCurrency}`),
         fetch("/api/reports/currency"),
         fetch("/api/sales"),
         fetch("/api/purchases"),
         fetch("/api/currencies?activeOnly=true"),
+        fetch("/api/ledger"),
       ]);
 
       if (lRes.ok) {
         const json = await lRes.json();
         if (json.success) setLotData(json.data);
+      }
+      if (ledRes.ok) {
+        const json = await ledRes.json();
+        if (json.success) setLedgerData(json.data.items);
       }
       if (cRes.ok) {
         const json = await cRes.json();
@@ -132,6 +138,18 @@ export default function ReportsPage() {
         p.totalAmount,
         `"${p.lot.lotNumber}"`,
         `"${p.lot.status}"`,
+      ]);
+    } else if (selectedReport === "STOCK_MOVEMENT") {
+      headers = ["Date", "Lot Number", "Currency", "Movement Type", "Quantity In (+)", "Quantity Out (-)", "Balance After", "Notes"];
+      rows = ledgerData.map((tx) => [
+        `"${formatDate(tx.transactionDate)}"`,
+        `"${tx.lot?.lotNumber || ""}"`,
+        `"${tx.currency?.code || ""}"`,
+        `"${tx.transactionType === "OPENING_BALANCE" ? "OPENING_STOCK" : tx.transactionType}"`,
+        tx.quantityIn,
+        tx.quantityOut,
+        tx.balanceAfter,
+        `"${tx.notes || tx.referenceType}"`,
       ]);
     }
 
@@ -444,6 +462,65 @@ export default function ReportsPage() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={p.lot.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {selectedReport === "STOCK_MOVEMENT" && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DATE</TableHead>
+                  <TableHead>LOT</TableHead>
+                  <TableHead>CURRENCY</TableHead>
+                  <TableHead>MOVEMENT TYPE</TableHead>
+                  <TableHead className="text-right">IN (+)</TableHead>
+                  <TableHead className="text-right">OUT (-)</TableHead>
+                  <TableHead className="text-right">BALANCE AFTER</TableHead>
+                  <TableHead>REFERENCE</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ledgerData.map((tx) => (
+                  <TableRow key={tx.id} className="h-16">
+                    <TableCell className="text-xs text-white/50 font-mono whitespace-nowrap">
+                      {formatDate(tx.transactionDate)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-semibold text-white">
+                      {tx.lot?.lotNumber}
+                    </TableCell>
+                    <TableCell className="font-semibold text-xs text-white">
+                      {tx.currency?.code}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase ${
+                          tx.transactionType === "OPENING_BALANCE"
+                            ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                            : tx.transactionType === "PURCHASE"
+                            ? "bg-white/10 text-white"
+                            : tx.transactionType === "SALE"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-white/[0.05] text-white/60"
+                        }`}
+                      >
+                        {tx.transactionType === "OPENING_BALANCE" ? "OPENING STOCK" : tx.transactionType.replace("_", " ")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-emerald-400 tabular-nums">
+                      {Number(tx.quantityIn) > 0 ? `+${formatAmount(tx.quantityIn)}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-rose-400 tabular-nums">
+                      {Number(tx.quantityOut) > 0 ? `-${formatAmount(tx.quantityOut)}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-semibold text-white tabular-nums">
+                      {formatAmount(tx.balanceAfter)}
+                    </TableCell>
+                    <TableCell className="text-xs text-white/50">
+                      {tx.notes || tx.referenceType}
                     </TableCell>
                   </TableRow>
                 ))}

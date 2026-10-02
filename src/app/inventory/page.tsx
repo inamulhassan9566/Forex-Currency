@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Coins,
   CheckCircle2,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CreateLotModal } from "@/components/lots/create-lot-modal";
 import { EditLotModal } from "@/components/lots/edit-lot-modal";
+import { DaybookPrintModal } from "@/components/inventory/daybook-print-modal";
 import { useRouter } from "next/navigation";
 
 export default function InventoryPage() {
@@ -49,6 +51,7 @@ export default function InventoryPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"OPENING_STOCK" | "PURCHASE">("OPENING_STOCK");
   const [editOpen, setEditOpen] = useState(false);
+  const [daybookPrintOpen, setDaybookPrintOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
 
   // Filters
@@ -757,6 +760,16 @@ export default function InventoryPage() {
                 onChange={(e) => setDaybookDate(e.target.value)}
                 className="h-8 text-xs font-mono w-36 bg-black/40 border-white/[0.1]"
               />
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDaybookPrintOpen(true)}
+                className="gap-1.5 border-amber-500/30 hover:border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 h-8"
+              >
+                <Printer className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Print Daybook Sheet</span>
+              </Button>
             </div>
           </div>
 
@@ -951,6 +964,13 @@ export default function InventoryPage() {
           loadData(true);
           if (viewMode === "DAILY_DAYBOOK") loadDaybook();
         }}
+      />
+
+      <DaybookPrintModal
+        open={daybookPrintOpen}
+        onOpenChange={setDaybookPrintOpen}
+        daybookData={daybookData}
+        date={daybookDate}
       />
     </div>
   );

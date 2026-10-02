@@ -150,6 +150,95 @@ export class ReportService {
   }
 
   /**
+   * 3. Daily Stock Position & Opening Stock Register (Daybook)
+   * Calculates:
+   * - Daily Opening Stock (all transactions prior to start of target day)
+   * - Today's Inward Purchases (+)
+   * - Today's Outward Sales (-)
+   * - Closing Vault Stock (= Opening + Inward - Outward)
+   * - Realized Profit Today
+   */
+  static async getDailyStockReport(targetDateStr?: string) {
+    const targetDate = targetDateStr ? new Date(targetDateStr) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const currencies = await prisma.currency.findMany({
+      where: { isActive: true },
+      orderBy: { code: "asc" },
+    });
+
+    const results = [];
+
+    for (const curr of currencies) {
+      // 1. Transactions prior to startOfDay determine the Daily Opening Stock
+      const priorTxs = await prisma.inventoryTransaction.findMany({
+        where: {
+          currencyId: curr.id,
+          transactionDate: { lt: startOfDay },
+        },
+      });
+
+      let openingStock = new Decimal(0);
+      for (const tx of priorTxs) {
+        openingStock = openingStock
+          .plus(FinanceDecimal.parse(tx.quantityIn))
+          .minus(FinanceDecimal.parse(tx.quantityOut));
+      }
+
+      // 2. Transactions during target date
+      const todayTxs = await prisma.inventoryTransaction.findMany({
+        where: {
+          currencyId: curr.id,
+          transactionDate: { gte: startOfDay, lte: endOfDay },
+        },
+      });
+
+      let inwardToday = new Decimal(0);
+      let outwardToday = new Decimal(0);
+
+      for (const tx of todayTxs) {
+        inwardToday = inwardToday.plus(FinanceDecimal.parse(tx.quantityIn));
+        outwardToday = outwardToday.plus(FinanceDecimal.parse(tx.quantityOut));
+      }
+
+      const closingStock = openingStock.plus(inwardToday).minus(outwardToday);
+
+      // 3. Profit realized today
+      const todayProfits = await prisma.profitRecord.findMany({
+        where: {
+          currencyId: curr.id,
+          transactionDate: { gte: startOfDay, lte: endOfDay },
+        },
+      });
+
+      let realizedProfitToday = new Decimal(0);
+      for (const pr of todayProfits) {
+        realizedProfitToday = realizedProfitToday.plus(FinanceDecimal.parse(pr.realizedProfit));
+      }
+
+      const prec = curr.decimalPrecision;
+
+      results.push({
+        currencyId: curr.id,
+        currencyCode: curr.code,
+        currencyName: curr.name,
+        symbol: curr.symbol,
+        openingStock: FinanceDecimal.toNumber(openingStock, 4),
+        inwardToday: FinanceDecimal.toNumber(inwardToday, 4),
+        outwardToday: FinanceDecimal.toNumber(outwardToday, 4),
+        closingStock: FinanceDecimal.toNumber(closingStock, 4),
+        realizedProfitToday: FinanceDecimal.toNumber(realizedProfitToday, prec),
+        date: startOfDay.toISOString().slice(0, 10),
+      });
+    }
+
+    return results;
+  }
+
+  /**
    * Helper to convert array of objects into CSV format
    */
   static convertToCsv(data: Record<string, any>[]): string {
